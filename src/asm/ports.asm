@@ -3,6 +3,7 @@ public write_port
 public priv_ldir
 public _set_priv
 public _reset_priv
+public _priv_upper
 
 heapBot			:= 0D1887Ch
 
@@ -51,6 +52,11 @@ _reset_priv:
     ld  bc,$1f
     ld  a,(priv_bkp+2)
     jp  write_port
+
+_priv_upper:
+    ld  bc,$1d
+    call    read_port
+    ret
 
 priv_bkp:
 rl  1

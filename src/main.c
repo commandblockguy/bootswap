@@ -8,22 +8,9 @@
 #include "versions.h"
 #include "asm/ports.h"
 #include "asm/flash.h"
+#include "flash.h"
 
-void asmprgm(void *mod_loc);
-
-void *getSequence(void) {
-    static const uint8_t seq[] = {0x3E, 0x04, 0xF3, 0x18, 0x00, 0xF3, 0xED, 0x7E, 0xED, 0x56, 0xED, 0x39, 0x28, 0xED, 0x38, 0x28, 0xCB, 0x57, 0xC9};
-    void *ptr;
-    ti_var_t slot;
-    ti_CloseAll();
-    /* todo: Error if file exists? */
-    slot = ti_Open("TMP", "w");
-    ti_Write(seq, sizeof(seq), 1, slot);
-    ti_SetArchiveStatus(slot, true);
-    ti_Rewind(slot);
-    ptr = ti_GetDataPtr(slot);
-    return ptr;
-}
+#define debugger(ignore) (*(volatile unsigned char *) 0xFFFFFF = 2);
 
 void *getModLoc(void) {
     uint8_t i;
@@ -40,9 +27,7 @@ void *getModLoc(void) {
 }
 
 void main() {
-    // hack to open debugger
-    *(volatile unsigned char *) 0xFFFFFF = 2;
-    void *sequence, *mod_loc;
+    void *sequence = NULL, *mod_loc = NULL;
     // actual data there is DDE5DD21000000DD...
     //                      00210100000000C9
     // ld hl is 0x21, ret is 0xC9
@@ -81,13 +66,10 @@ void main() {
 
     /* Maybe an "apply diff" mode? */
 
-    sequence = getSequence();
     mod_loc = getModLoc();
     if(mod_loc) {
-        set_priv();
-        flash_unlock();
-        flash_sequence(sequence);
-        reset_all_ipbs();
+        debugger();
+        unlock_bootcode();
 
         /* Disable OS verification */
         write_bytes(mod_loc, overwrite_data, sizeof(overwrite_data));
@@ -95,12 +77,10 @@ void main() {
         /* Add null terminator to "RAM cleared" in the OS */
         write_bytes((void*)0x08D6FC, &zero, 1);
 
-        set_boot_ipbs();
-        flash_lock();
-        reset_priv();
-
-        while(true);
+        lock_bootcode();
     }
+
+    exit:
 
     ti_CloseAll();
     ti_Delete("TMP");

@@ -1,8 +1,10 @@
 public _flash_unlock
 public _flash_lock
+public _get_flash_lock_status
 public _flash_sequence
 public _write_bytes
 public write_byte
+public _erase_sector
 public _reset_all_ipbs
 public _set_boot_ipbs
 
@@ -30,6 +32,10 @@ _flash_lock:
 	ld	bc,$24
 	ld	a,$88
 	jp	write_port
+
+_get_flash_lock_status:
+    ld  bc,$28
+    jp  read_port
 
 _flash_sequence:
     pop de
@@ -65,6 +71,56 @@ write_byte:
     ld  ($AAA),a
     ld  a,(hl)
     ld  (de),a
+    ret
+
+_erase_sector:
+    pop de
+    pop hl
+    push    hl
+    push    de
+; this bit was taken from the bootcode
+; maybe actually copy it from there to avoid copyright issues?
+    ld a,$AA
+    ld ($000AAA),a
+    ld a,$55
+    ld ($000555),a
+    ld a,$80
+    ld ($000AAA),a
+    ld a,$AA
+    ld ($000AAA),a
+    ld a,$55
+    ld ($000555),a
+    ld a,$30
+    ld (hl),a
+.read_1:
+    ld a,(hl)
+    and a,$08
+    jr nz,.read_1
+    ld a,(hl)
+    and a,$40
+    ld b,a
+.read_2:
+    ld a,(hl)
+    ld c,a
+    and a,$40
+    cp a,b
+    ret z
+    ld a,c
+    and a,$40
+    ld b,a
+    ld a,c
+    and a,$20
+    jr z,.read_2
+    ld a,(hl)
+    and a,$40
+    ld b,a
+    ld a,(hl)
+    and a,$40
+    cp a,b
+    ret z
+    ld a,$F0
+    ld (hl),a
+    or a,a
     ret
 
 _reset_all_ipbs:
