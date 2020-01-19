@@ -132,17 +132,19 @@ _reset_all_ipbs:
     jp  exit_ipb_program
 
 _set_boot_ipbs:
-    call    enter_ipb_program
-    ld  b,8
+    ld  b,9
     ld  hl,0
+    ld  de,8192
 set_ipb:
+    call    enter_ipb_program
     ld  a,$A0
     ld  ($000),a
     ld  a,$00
     ld  (hl),a
-    inc hl
+    add hl,de
+    call    exit_ipb_program
     djnz    set_ipb
-    jp  exit_ipb_program
+    ret
 
 enter_ipb_program:
     ld  a,$AA
