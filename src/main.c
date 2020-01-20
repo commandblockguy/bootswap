@@ -5,6 +5,7 @@
 #undef NDEBUG
 #define DEBUG
 #include <debug.h>
+#include <graphx.h>
 #include "versions.h"
 #include "asm/ports.h"
 #include "asm/flash.h"
@@ -33,6 +34,7 @@ void main() {
     // ld hl is 0x21, ret is 0xC9
     const char overwrite_data[] = {00,0x21,01,00,00,00,00,0xC9};
     const char zero = 0;
+
 
     // todo:
     /* Display warning */
@@ -66,19 +68,29 @@ void main() {
 
     /* Maybe an "apply diff" mode? */
 
-    mod_loc = getModLoc();
-    if(mod_loc) {
-        debugger();
-        unlock_bootcode();
+    os_ClrHomeFull();
+    os_SetCursorPos(0, 0);
 
-        /* Disable OS verification */
-        write_bytes(mod_loc, overwrite_data, sizeof(overwrite_data));
+    debugger();
+    unlock_bootcode();
 
-        /* Add null terminator to "RAM cleared" in the OS */
-        write_bytes((void*)0x08D6FC, &zero, 1);
+    timer_Control = TIMER1_DISABLE;
+    timer_1_Counter = 0;
+    timer_Control = TIMER1_ENABLE | TIMER1_32K | TIMER1_UP;
 
-        lock_bootcode();
-    }
+    timer_Control = TIMER1_DISABLE;
+
+    /* Disable OS verification */
+    //write_bytes(mod_loc, overwrite_data, sizeof(overwrite_data));
+
+    /* Add null terminator to "RAM cleared" in the OS */
+    //write_bytes((void*)0x08D6FC, &zero, 1);
+
+    lock_bootcode();
+
+    *(uint24_t*)gfx_vram = 0xffffff;
+
+    while(!os_GetCSC());
 
     exit:
 

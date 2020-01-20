@@ -129,21 +129,42 @@ _reset_all_ipbs:
     ld  ($00),a
     ld  a,$30
     ld  ($00),a
+
+    ld  hl,24000*71/33
+.loop:
+    dec hl
+    add	hl,de
+    or	a,a
+    sbc	hl,de
+    jr  nz,.loop
     jp  exit_ipb_program
 
 _set_boot_ipbs:
     ld  b,9
     ld  hl,0
     ld  de,8192
-set_ipb:
+.set_ipb:
     call    enter_ipb_program
     ld  a,$A0
     ld  ($000),a
     ld  a,$00
     ld  (hl),a
     add hl,de
+    call    wait_500_us
     call    exit_ipb_program
-    djnz    set_ipb
+    djnz    .set_ipb
+    ret
+
+wait_500_us:
+    push    hl
+    ld  hl,24000/33
+.loop:
+    dec hl
+    add	hl,de
+    or	a,a
+    sbc	hl,de
+    jr  nz,.loop
+    pop hl
     ret
 
 enter_ipb_program:
@@ -158,7 +179,7 @@ enter_ipb_program:
 exit_ipb_program:
     ld  a,$90
     ld  ($00),a
-    ld  a,$00
+    xor a,a
     ld  ($00),a
     ret
 
