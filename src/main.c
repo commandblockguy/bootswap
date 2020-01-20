@@ -10,6 +10,7 @@
 #include "asm/ports.h"
 #include "asm/flash.h"
 #include "flash.h"
+#include "backup.h"
 
 #define debugger(ignore) (*(volatile unsigned char *) 0xFFFFFF = 2);
 
@@ -28,7 +29,7 @@ void *getModLoc(void) {
 }
 
 void main() {
-    void *sequence = NULL, *mod_loc = NULL;
+    void *mod_loc = NULL;
     // actual data there is DDE5DD21000000DD...
     //                      00210100000000C9
     // ld hl is 0x21, ret is 0xC9
@@ -68,27 +69,29 @@ void main() {
 
     /* Maybe an "apply diff" mode? */
 
+    dbg_sprintf(dbgout, "\n\nprogram started\n");
+
+    ti_CloseAll();
+
+    boot_code_to_vram();
+
+    dbg_sprintf(dbgout, "boot code copied to vram\n");
+
+    if(!vram_to_appvar("BOOT")) {
+        dbg_sprintf(dbgout, "error loading to appvar\n");
+        goto exit;
+    }
+
+    while(!os_GetCSC());
+
     os_ClrHomeFull();
-    os_SetCursorPos(0, 0);
 
-    debugger();
-    unlock_bootcode();
+    if(!appvar_to_vram("BOOT")) {
+        dbg_sprintf(dbgout, "error in loading from appvar\n");
+        goto exit;
+    }
 
-    timer_Control = TIMER1_DISABLE;
-    timer_1_Counter = 0;
-    timer_Control = TIMER1_ENABLE | TIMER1_32K | TIMER1_UP;
-
-    timer_Control = TIMER1_DISABLE;
-
-    /* Disable OS verification */
-    //write_bytes(mod_loc, overwrite_data, sizeof(overwrite_data));
-
-    /* Add null terminator to "RAM cleared" in the OS */
-    //write_bytes((void*)0x08D6FC, &zero, 1);
-
-    lock_bootcode();
-
-    *(uint24_t*)gfx_vram = 0xffffff;
+    vram_to_boot_code();
 
     while(!os_GetCSC());
 

@@ -9,4 +9,4 @@ add_custom_target(Make ALL $(MAKE) WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 
 # A dummy target to make CLion do stuff
 add_executable(dummy
-    src/main.c src/versions.c src/versions.h src/asm/ports.h src/asm/flash.h src/flash.c src/flash.h)
+    src/main.c src/versions.c src/versions.h src/asm/ports.h src/asm/flash.h src/flash.c src/flash.h src/backup.c src/backup.h)

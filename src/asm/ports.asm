@@ -1,6 +1,6 @@
 public read_port
 public write_port
-public priv_ldir
+public _priv_copy
 public _set_priv
 public _reset_priv
 public _priv_upper
@@ -19,11 +19,19 @@ write_port:
 	ld	(hl),de
 	jp	(hl)
 
-priv_ldir:
-	ld	de,$C9B0ED
-	ld	hl,heapBot - 3
-	ld	(hl),de
-    ret
+_priv_copy:
+    ld	de,$C9B0ED
+    ld	hl,heapBot - 3
+    ld	(hl),de
+    pop iy
+    pop de
+    pop hl
+    pop bc
+    push    bc
+    push    hl
+    push    de
+    push    iy
+    jp  heapBot - 3
 
 _set_priv:
     ld  bc,$1d

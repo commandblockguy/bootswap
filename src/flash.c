@@ -5,6 +5,7 @@
 #undef NDEBUG
 #define DEBUG
 #include <debug.h>
+#include <graphx.h>
 
 void *sequence = NULL;
 
@@ -56,4 +57,20 @@ void lock_bootcode(void) {
     set_boot_ipbs();
     flash_lock();
     reset_priv();
+}
+
+void boot_code_to_vram(void) {
+    priv_copy(gfx_vram, 0, 0x020000);
+}
+
+void vram_to_boot_code(void) {
+    void *sector;
+
+    unlock_bootcode();
+
+    for(sector = 0x000000; sector <= (void*)0x010000; sector += 0x2000) {
+        write_sector(sector, gfx_vram + (int)sector);
+    }
+
+    lock_bootcode();
 }
