@@ -3,7 +3,6 @@ public _flash_lock
 public _get_flash_lock_status
 public _flash_sequence
 public _write_bytes
-public write_byte
 public _erase_sector
 public _reset_all_ipbs
 public _set_boot_ipbs
@@ -50,27 +49,35 @@ _write_bytes:
     ld  de,(iy+3)
     ld  hl,(iy+6)
     ld  bc,(iy+9)
-write_bytes:
-    call    write_byte
-    inc hl
+; this is also from the bootcode
+.byte_loop:
+    ld a,($00007E)
+    bit 6,a
+    jr z,.skip_command
+    ld a,$AA
+    ld ($000AAA),a
+    ld a,$55
+    ld ($000555),a
+    ld a,$A0
+    ld ($000AAA),a
+.skip_command:
+    ld a,(hl)
+    ld (de),a
+    push bc
+    ld b,a
+.wait:
+    ld a,(de)
+    cp a,b
+    jr nz,.wait
+    pop bc
     inc de
+    inc hl
     dec bc
-    push	hl
-    sbc	hl,hl
-    adc	hl,bc
-    pop	hl
-    jr  nz,write_bytes
-    ret
-
-write_byte:
-    ld  a,$AA
-    ld  ($AAA),a
-    ld  a,$55
-    ld  ($555),a
-    ld  a,$A0
-    ld  ($AAA),a
-    ld  a,(hl)
-    ld  (de),a
+    ld ($D02AD7),bc
+    ld a,($D02AD9)
+    or a,b
+    or a,c
+    jr nz,.byte_loop
     ret
 
 _erase_sector:
