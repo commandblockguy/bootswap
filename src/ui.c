@@ -111,7 +111,9 @@ uint8_t menu(const char *name, const struct menu_option *options, uint8_t num_op
 
             options[selected].function();
 
-            menu_redraw(name, options, num_options, selected);
+            while(kb_IsDown(kb_KeyEnter) ||
+                  kb_IsDown(kb_Key2nd) ||
+                  kb_IsDown(kb_KeyClear)) kb_Scan();
             return selected + 1;
         }
     }
@@ -225,6 +227,46 @@ bool text_entry(char *str, uint8_t length, uint8_t y) {
     }
 }
 
+void print_wrapped_text(char *str, uint24_t left_margin, uint8_t top_margin, uint24_t right_margin) {
+    char *word = str;
+    char *current = str;
+
+    gfx_SetTextXY(left_margin, top_margin);
+
+    while(true) {
+        uint8_t width = 0;
+        for(; *current != ' ' && *current != 0; current++) {
+            width += gfx_GetCharWidth(*current);
+        }
+
+        if(gfx_GetTextX() + width > right_margin) {
+            gfx_SetTextXY(left_margin, gfx_GetTextY() + LINE_SPACING);
+        }
+
+        for(; word <= current; word++) {
+            gfx_PrintChar(*word);
+        }
+
+        if(*current == 0) return;
+        current++;
+    }
+
+}
+
+void message(char *title, char *str) {
+    gfx_FillScreen(BG_COLOR);
+    gfx_SetTextFGColor(TEXT_COLOR);
+    gfx_SetTextScale(2, 2);
+    gfx_PrintStringXY(title, BASE_X, TITLE_Y);
+    gfx_SetTextScale(1, 1);
+    print_wrapped_text(str, BASE_X, BASE_Y, LCD_WIDTH - BASE_X);
+    gfx_SwapDraw();
+
+    while(kb_IsDown(kb_KeyClear) || kb_IsDown(kb_KeyEnter)) kb_Scan();
+    while(!kb_IsDown(kb_KeyClear) && !kb_IsDown(kb_KeyEnter)) kb_Scan();
+    while(kb_IsDown(kb_KeyClear) || kb_IsDown(kb_KeyEnter)) kb_Scan();
+}
+
 void main_menu(void) {
     const struct menu_option options[] = {
         {menu_backup,               "Back up to appvar"},
@@ -253,12 +295,19 @@ void menu_backup(void) {
 
     gfx_PrintStringXY("Appvar to backup to:", BASE_X, BASE_Y);
 
-    //todo: add error message
-
     if(!text_entry(str, 8, LCD_HEIGHT / 3)) return;
 
+    if(!strlen(str)) {
+        message("Error:", "Invalid file name.");
+        return;
+    }
+
     boot_code_to_vram();
-    vram_to_appvar(str);
+    if(vram_to_appvar(str)) {
+        message("Error:", "Failed to create backup. Try deleting or archiving programs to make space.");
+    };
+
+    message("Success", "Backup complete.");
 }
 
 void menu_install(void) {
@@ -277,45 +326,57 @@ void menu_install(void) {
     }
 
     if(!num_vars) {
-        gfx_FillScreen(BG_COLOR);
-        gfx_SetTextFGColor(TEXT_COLOR);
-        gfx_PrintStringXY("No backups found.", BASE_X, BASE_Y);
-        gfx_SwapDraw();
-
-        while(!kb_IsDown(kb_KeyClear)) kb_Scan();
-        while(kb_IsDown(kb_KeyClear)) kb_Scan();
-        return;
+        message("Error:", "No backups found.");
     }
 
     selection = menu("Load from appvar:", options, num_vars);
 
-    //todo: add error message
-
     if(!selection) return;
 
-    if(!appvar_to_vram(names[selection - 1])) return;
+    if(!appvar_to_vram(names[selection - 1])) {
+        message("Error:", "Failed to read backup appvars.");
+    }
     vram_to_boot_code();
+
+    message("Success", "Bootcode installed successfully.");
 }
 
 void menu_verify_current(void) {
     //todo: verify current bootcode
+    message("Error:", "Verification is not yet implemented.");
 }
 
 void menu_verify_appvar(void) {
     //todo: verify appvar
+    message("Error:", "Verification is not yet implemented.");
 }
 
 void menu_disable_verification(void) {
-    //todo: handle errors
     void *location = get_mod_location();
-    if(!location) return;
-    patch(location, patch_data, unpatch_data, PATCH_SIZE);
+    if(!location) {
+        message("Error:", "Unable to determine which memory location to patch for this boot code version.");
+        return;
+    }
+
+    if(!patch(location, patch_data, unpatch_data, PATCH_SIZE)) {
+        message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
+    }
+
+    message("Success", "OS verification disabled.");
 }
 
 void menu_enable_verification(void) {
-    //todo: handle errors
     void *location = get_mod_location();
-    if(!location) return;
-    patch(location, unpatch_data, patch_data, PATCH_SIZE);
+    if(!location) {
+        message("Error:",
+                "Unable to find patch location for this bootcode version");
+        return;
+    }
+
+    if(!patch(location, unpatch_data, patch_data, PATCH_SIZE)) {
+        message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
+    }
+
+    message("Success", "OS verification re-enabled.");
 }
 
