@@ -18,7 +18,7 @@ void menu_backup(void);
 void menu_install(void);
 void menu_verify_current(void);
 void menu_verify_appvar(void);
-void menu_enable_3P(void);
-void menu_disable_3P(void);
+void menu_disable_verification(void);
+void menu_enable_verification(void);
 
 #endif //BOOTSWAP_UI_H

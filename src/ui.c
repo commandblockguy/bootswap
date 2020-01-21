@@ -9,6 +9,8 @@
 #include "ui.h"
 #include "backup.h"
 #include "flash.h"
+#include "patch.h"
+#include "versions.h"
 
 // todo:
 /* Display warning */
@@ -144,11 +146,17 @@ void menu_verify_appvar(void) {
     //todo: verify appvar
 }
 
-void menu_enable_3P(void) {
-    //todo: patch bootcode
+void menu_disable_verification(void) {
+    //todo: handle errors
+    void *location = get_mod_location();
+    if(!location) return;
+    patch(location, patch_data, unpatch_data, PATCH_SIZE);
 }
 
-void menu_disable_3P(void) {
-    //todo: patch bootcode
+void menu_enable_verification(void) {
+    //todo: handle errors
+    void *location = get_mod_location();
+    if(!location) return;
+    patch(location, unpatch_data, patch_data, PATCH_SIZE);
 }
 

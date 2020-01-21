@@ -12,11 +12,17 @@ struct version_number {
 
 struct version {
     struct version_number number;
-    void *nop_location;
+    void *verification_location;
 };
 
 #define NUM_VERSIONS 3
 
 extern const struct version versions[NUM_VERSIONS];
+
+void *get_mod_location(void);
+
+#define PATCH_SIZE 5
+extern const uint8_t   patch_data[PATCH_SIZE];
+extern const uint8_t unpatch_data[PATCH_SIZE];
 
 #endif //FLASH_VERSIONS_H
