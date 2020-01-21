@@ -52,6 +52,7 @@
 #define TITLE_Y 8
 #define BASE_Y 32
 #define LINE_SPACING 12
+#define TEXT_HEIGHT 8
 
 void menu_redraw(const char *name, const struct menu_option *options, uint8_t num_options, uint8_t selected) {
     uint8_t i;
@@ -116,6 +117,114 @@ uint8_t menu(const char *name, const struct menu_option *options, uint8_t num_op
     }
 }
 
+bool text_entry(char *str, uint8_t length, uint8_t y) {
+    const char getkey_letters[] = "\0\0\0\0\0\0\0\0\0\0\"WRMH\0\0?\0VQLG\0\0:ZUPKFC\0 YTOJEB\0\0XSNIDA\0\0\0\0\0\0\0\0";
+    const char getkey_numeric[] = "\0\0\0\0\0\0\0\0\0\0+-*/^\0\0-369)\0\0\0.258(\0\0\0000147,\0\0\0\0>\0\0\0\0\0\0\0\0\0\0\0\0\0";
+    enum entry_mode {
+        UPPERCASE,
+        LOWERCASE,
+        NUMERIC
+    };
+    uint8_t pos = 0; // the position new characters will be inserted into
+    uint8_t end = 0; // the index of the null byte
+    uint8_t mode = UPPERCASE;
+    bool key_pressed = true;
+    uint8_t key_value;
+    uint8_t blink_value = 0;
+    uint8_t i;
+#define SLOT_WIDTH 8
+#define SLOT_GAP 3
+    uint24_t base_x = (LCD_WIDTH - (SLOT_WIDTH * (length - 1) + SLOT_GAP * (length - 2))) / 2;
+
+    memset(str, 0, length);
+
+    while(true) {
+        kb_Scan();
+
+        key_value = os_GetCSC();
+
+        if(!key_pressed) {
+            if(kb_IsDown(kb_KeyClear)) {
+                return false;
+            }
+            if(kb_IsDown(kb_KeyEnter)) {
+                return true;
+            }
+
+            if(kb_IsDown(kb_KeyRight) && pos < end) pos++;
+            if(kb_IsDown(kb_KeyLeft) && pos > 0) pos--;
+
+            if(kb_IsDown(kb_KeyDel) && pos != end) {
+                memmove(&str[pos], &str[pos+1], end - pos);
+                end--;
+            }
+
+            if(kb_IsDown(kb_KeyAlpha)) {
+                mode++;
+                if(mode > 2) mode = 0;
+            }
+        }
+
+        key_pressed = false;
+        for(i = 1; i <= 7; i++) {
+            if(kb_Data[i]) key_pressed = true;
+        }
+
+        if(key_value && end < length - 1) {
+            char ch;
+            if(mode == NUMERIC) {
+                ch = getkey_numeric[key_value];
+            } else {
+                ch = getkey_letters[key_value];
+                if(mode == LOWERCASE && ch >= 'A' && ch <= 'Z') {
+                    // convert to lowercase
+                    ch -= ('A' - 'a');
+                }
+            }
+
+            if(ch) {
+                memmove(&str[pos + 1], &str[pos], end - pos + 1);
+                str[pos] = ch;
+                pos++;
+                end++;
+            }
+        }
+
+        gfx_SetColor(BG_COLOR);
+        gfx_FillRectangle_NoClip(0, y, LCD_WIDTH, 2 * TEXT_HEIGHT + 3);
+
+        for(i = 0; i < length - 1; i++) {
+            gfx_SetColor(TEXT_COLOR);
+            if(i < end) {
+                gfx_SetTextXY(base_x + i * (SLOT_WIDTH + SLOT_GAP), y);
+                gfx_PrintChar(str[i]);
+            }
+            if(i == pos) {
+                gfx_SetTextXY(base_x + i * (SLOT_WIDTH + SLOT_GAP), y + TEXT_HEIGHT + 3);
+                switch(mode) {
+                    default:
+                    case UPPERCASE:
+                        gfx_PrintChar('A');
+                        break;
+                    case LOWERCASE:
+                        gfx_PrintChar('a');
+                        break;
+                    case NUMERIC:
+                        gfx_PrintChar('1');
+                        break;
+                }
+                if (blink_value & 32) {
+                    gfx_SetColor(SELECTED_COLOR);
+                }
+            }
+            gfx_HorizLine(base_x + i * (SLOT_WIDTH + SLOT_GAP), y + TEXT_HEIGHT, SLOT_WIDTH);
+        }
+
+        blink_value++;
+        gfx_BlitBuffer();
+    }
+}
+
 void main_menu(void) {
     const struct menu_option options[] = {
         {menu_backup,               "Back up to appvar"},
@@ -138,9 +247,18 @@ void main_menu(void) {
 }
 
 void menu_backup(void) {
-    /* todo: ask for appvar name */
+    char str[8];
+
+    gfx_FillScreen(BG_COLOR);
+
+    gfx_PrintStringXY("Appvar to backup to:", BASE_X, BASE_Y);
+
+    //todo: add error message
+
+    if(!text_entry(str, 8, LCD_HEIGHT / 3)) return;
+
     boot_code_to_vram();
-    vram_to_appvar("BOOT");
+    vram_to_appvar(str);
 }
 
 void menu_install(void) {
@@ -170,6 +288,8 @@ void menu_install(void) {
     }
 
     selection = menu("Load from appvar:", options, num_vars);
+
+    //todo: add error message
 
     if(!selection) return;
 
