@@ -6,6 +6,8 @@
 #undef NDEBUG
 #define DEBUG
 #include <debug.h>
+#include <fileioc.h>
+#include <string.h>
 #include "ui.h"
 #include "backup.h"
 #include "flash.h"
@@ -46,18 +48,19 @@
 #define TEXT_COLOR 255
 #define SELECTED_COLOR 60
 
+#define BASE_X LCD_WIDTH / 8
+#define TITLE_Y 8
+#define BASE_Y 32
+#define LINE_SPACING 12
+
 void menu_redraw(const char *name, const struct menu_option *options, uint8_t num_options, uint8_t selected) {
-    const uint24_t base_x = LCD_WIDTH / 8;
-    const uint8_t title_y = 8;
-    const uint8_t base_y = 32;
-    const uint8_t option_distance = 12;
     uint8_t i;
 
     gfx_FillScreen(BG_COLOR);
 
     gfx_SetTextFGColor(TEXT_COLOR);
     gfx_SetTextScale(2, 2);
-    gfx_PrintStringXY(name, base_x, title_y);
+    gfx_PrintStringXY(name, BASE_X, TITLE_Y);
     gfx_SetTextScale(1, 1);
 
 
@@ -68,13 +71,14 @@ void menu_redraw(const char *name, const struct menu_option *options, uint8_t nu
             gfx_SetTextFGColor(TEXT_COLOR);
         }
 
-        gfx_PrintStringXY(options[i].str, base_x, base_y + i * option_distance);
+        gfx_PrintStringXY(options[i].str, BASE_X, BASE_Y + i * LINE_SPACING);
     }
 
     gfx_SwapDraw();
 }
 
-void menu(const char *name, const struct menu_option *options, uint8_t num_options) {
+/* Returns 0 if clear was pressed, or the option number starting at 1 */
+uint8_t menu(const char *name, const struct menu_option *options, uint8_t num_options) {
     uint8_t selected = 0;
 
     menu_redraw(name, options, num_options, selected);
@@ -82,7 +86,7 @@ void menu(const char *name, const struct menu_option *options, uint8_t num_optio
     while(true) {
         kb_Scan();
 
-        if(kb_IsDown(kb_KeyClear)) break;
+        if(kb_IsDown(kb_KeyClear)) return 0;
 
         if(kb_IsDown(kb_KeyUp)) {
             if(selected == 0) selected = num_options;
@@ -101,29 +105,36 @@ void menu(const char *name, const struct menu_option *options, uint8_t num_optio
         }
 
         if(kb_IsDown(kb_KeyEnter) || kb_IsDown(kb_Key2nd)) {
-            if(options[selected].function == NULL) return;
+            if(options[selected].function == NULL) return selected + 1;
             while(kb_IsDown(kb_KeyEnter) || kb_IsDown(kb_Key2nd)) kb_Scan();
 
             options[selected].function();
 
             menu_redraw(name, options, num_options, selected);
+            return selected + 1;
         }
     }
 }
 
 void main_menu(void) {
     const struct menu_option options[] = {
-        {menu_backup, "Back up to appvar"},
-        {menu_install, "Install from appvar"},
-        {menu_verify_current, "Verify current bootcode"},
-        {menu_verify_appvar, "Verify appvar"},
-        {menu_enable_3P, "Enable 3rd-party OSes"},
-        {menu_disable_3P, "Disable 3rd-party OSes"},
-        {NULL, "Exit"}
+        {menu_backup,               "Back up to appvar"},
+        {menu_install,              "Install from appvar"},
+        {menu_verify_current,       "Verify current bootcode"},
+        {menu_verify_appvar,        "Verify appvar"},
+        {menu_disable_verification, "Disable OS verification"},
+        {menu_enable_verification,  "Re-enable OS verification"},
+        {NULL,                      "Exit"}
     };
     const char num_options = sizeof(options) / sizeof(options[0]);
 
-    menu("BootSwap", options, num_options);
+    uint8_t val;
+
+    while(true) {
+        val = menu("BootSwap", options, num_options);
+        if(val == 0) break;
+        if(val == num_options) break;
+    }
 }
 
 void menu_backup(void) {
@@ -133,8 +144,36 @@ void menu_backup(void) {
 }
 
 void menu_install(void) {
-    /* todo: list appvars */
-    appvar_to_vram("BOOT");
+    struct menu_option options[10];
+    char names[10][9];
+    void *search_pos;
+    uint8_t num_vars, selection;
+
+    for(search_pos = NULL, num_vars = 0; num_vars < 100; num_vars++) {
+        char *name;
+        options[num_vars].function = NULL;
+        options[num_vars].str = names[num_vars];
+        if(!(name = ti_Detect(&search_pos, "bootcode"))) break;
+        strcpy(names[num_vars], name);
+        // todo: maybe ignore appvars with missing data
+    }
+
+    if(!num_vars) {
+        gfx_FillScreen(BG_COLOR);
+        gfx_SetTextFGColor(TEXT_COLOR);
+        gfx_PrintStringXY("No backups found.", BASE_X, BASE_Y);
+        gfx_SwapDraw();
+
+        while(!kb_IsDown(kb_KeyClear)) kb_Scan();
+        while(kb_IsDown(kb_KeyClear)) kb_Scan();
+        return;
+    }
+
+    selection = menu("Load from appvar:", options, num_vars);
+
+    if(!selection) return;
+
+    if(!appvar_to_vram(names[selection - 1])) return;
     vram_to_boot_code();
 }
 
