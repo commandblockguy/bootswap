@@ -3,18 +3,17 @@
 #include "versions.h"
 
 const struct version versions[NUM_VERSIONS] = {
-    {{0x05, 0x00, 0x00, 0x59}, (void*)0x5907},
-    {{0x05, 0x01, 0x05, 0x0e}, (void*)0x5CC8},
-    {{0x05, 0x03, 0x01, 0x32}, (void*)0x5ECF}
+    {{0x05, 0x00, 0x00, 0x59}, (void*)0x5907,   910250,  3340696},
+    {{0x05, 0x01, 0x05, 0x0e}, (void*)0x5CC8, 16288302, 11582739},
+    {{0x05, 0x03, 0x01, 0x32}, (void*)0x5ECF,  1825178,  9998982}
 };
 
-void *get_mod_location(void) {
+const struct version *get_version(const struct version_number *version_number) {
     uint8_t i;
-    const system_info_t *sys_info = os_GetSystemInfo();
     for(i = 0; i < NUM_VERSIONS; i++) {
         const struct version_number *current = &versions[i].number;
-        if(memcmp(current, &sys_info->bootMajorVersion, sizeof(struct version_number)) == 0) {
-            return versions[i].verification_location;
+        if(memcmp(current, version_number, sizeof(struct version_number)) == 0) {
+            return &versions[i];
         }
     }
     return NULL;

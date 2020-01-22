@@ -13,6 +13,7 @@
 #include "flash.h"
 #include "patch.h"
 #include "versions.h"
+#include "verification.h"
 
 // todo:
 /* Display warning */
@@ -311,11 +312,12 @@ void menu_backup(void) {
     message("Success", "Backup complete.");
 }
 
-void menu_install(void) {
+bool get_appvar_name(char *title, char* result) {
     struct menu_option options[10];
     char names[10][9];
     void *search_pos;
-    uint8_t num_vars, selection;
+    uint8_t num_vars;
+    uint8_t selection;
 
     for(search_pos = NULL, num_vars = 0; num_vars < 100; num_vars++) {
         char *name;
@@ -327,14 +329,24 @@ void menu_install(void) {
     }
 
     if(!num_vars) {
-        message("Error:", "No backups found.");
+        message("Error:", "No backup appvars found.");
+        return false;
     }
 
-    selection = menu("Load from appvar:", options, num_vars);
+    selection = menu(title, options, num_vars);
 
-    if(!selection) return;
+    if(!selection) return false;
 
-    if(!appvar_to_vram(names[selection - 1])) {
+    strcpy(result, names[selection - 1]);
+    return true;
+}
+
+void menu_install(void) {
+    char name[9];
+
+    if(!get_appvar_name("Load from appvar:", name)) return;
+
+    if(!appvar_to_vram(name)) {
         message("Error:", "Failed to read backup appvars.");
     }
     vram_to_boot_code();
@@ -342,18 +354,88 @@ void menu_install(void) {
     message("Success", "Bootcode installed successfully.");
 }
 
+void menu_verify(void) {
+    uint24_t crc;
+    struct version_number version_number;
+    const struct version *version;
+    bool has_interrupt_handlers;
+    bool has_calls;
+    bool pre_rev_m;
+
+    crc = crc24(gfx_vram, 0x020000);
+
+    version_number.bootMajorVersion = version_in_vram->very_major;
+    version_number.bootMinorVersion = version_in_vram->major;
+    version_number.bootRevisionVersion = version_in_vram->minor;
+    version_number.bootBuildVersion = version_in_vram->build_upper << 8 | version_in_vram->build_lower;
+
+    version = get_version(&version_number);
+
+    has_interrupt_handlers = verify_interrupt_handlers();
+    has_calls = verify_boot_calls();
+    pre_rev_m = verify_pre_m_version();
+
+    gfx_FillScreen(BG_COLOR);
+
+    gfx_SetTextFGColor(TEXT_COLOR);
+
+    gfx_PrintStringXY("Version: ", BASE_X, BASE_Y);
+    gfx_PrintUInt(version_number.bootMajorVersion, 1);
+    gfx_PrintChar('.');
+    gfx_PrintUInt(version_number.bootMinorVersion, 1);
+    gfx_PrintChar('.');
+    gfx_PrintUInt(version_number.bootRevisionVersion, 1);
+    gfx_PrintChar('.');
+    gfx_PrintUInt(version_number.bootBuildVersion, 4);
+
+    gfx_PrintStringXY("CRC: ", BASE_X, BASE_Y + LINE_SPACING);
+    gfx_PrintUInt(crc, 8);
+
+    gfx_PrintStringXY("Known CRC: ", BASE_X, BASE_Y + LINE_SPACING * 2);
+    if(version)
+        gfx_PrintUInt(version->crc_original, 8);
+    else {
+        gfx_PrintString("Unknown version.");
+    }
+
+    if(!has_interrupt_handlers)
+        gfx_PrintStringXY("Interrupt handlers missing!", BASE_X, BASE_Y + LINE_SPACING * 3);
+
+    if(!has_calls)
+        gfx_PrintStringXY("Bootcode calls missing!", BASE_X, BASE_Y + LINE_SPACING * 4);
+
+    if(!has_calls || !has_interrupt_handlers || !pre_rev_m)
+        gfx_PrintStringXY("Not suitable for installation.", BASE_X, BASE_Y + LINE_SPACING * 5);
+    else
+        gfx_PrintStringXY("Suitable for installation.", BASE_X, BASE_Y + LINE_SPACING * 5);
+
+    gfx_SwapDraw();
+
+    while(kb_IsDown(kb_KeyClear) || kb_IsDown(kb_KeyEnter) || kb_IsDown(kb_Key2nd)) kb_Scan();
+    while(!kb_IsDown(kb_KeyClear) && !kb_IsDown(kb_KeyEnter) && !kb_IsDown(kb_Key2nd)) kb_Scan();
+}
+
 void menu_verify_current(void) {
-    //todo: verify current bootcode
-    message("Error:", "Verification is not yet implemented.");
+    boot_code_to_vram();
+    menu_verify();
 }
 
 void menu_verify_appvar(void) {
-    //todo: verify appvar
-    message("Error:", "Verification is not yet implemented.");
+    char name[9];
+
+    if(!get_appvar_name("Verify appvar:", name)) return;
+
+    if(!appvar_to_vram(name)) {
+        message("Error:", "Failed to read backup appvars.");
+    }
+
+    menu_verify();
 }
 
 void menu_disable_verification(void) {
-    void *location = get_mod_location();
+    const struct version_number *version_number = (struct version_number*)&os_GetSystemInfo()->bootMajorVersion;
+    const struct version *version = get_version(version_number);
+    void *location = version->verification_location;
     if(!location) {
         message("Error:", "Unable to determine which memory location to patch for this boot code version.");
         return;
@@ -367,7 +449,9 @@ void menu_disable_verification(void) {
 }
 
 void menu_enable_verification(void) {
-    void *location = get_mod_location();
+    const struct version_number *version_number = (struct version_number*)&os_GetSystemInfo()->bootMajorVersion;
+    const struct version *version = get_version(version_number);
+    void *location = version->verification_location;
     if(!location) {
         message("Error:",
                 "Unable to find patch location for this bootcode version");

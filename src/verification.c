@@ -104,7 +104,7 @@ bool verify_interrupt_handlers(void) {
 bool verify_boot_calls(void) {
     uint24_t i;
 
-    for(i = 0x80; i <= 0x650; i += 4) {
+    for(i = 0x80; i < 0x640; i += 4) {
         if(gfx_vram[i] != 0xC3) {
             dbg_sprintf(dbgout, "no call at 0x%X\n", i);
             return false;
@@ -117,6 +117,5 @@ bool verify_boot_calls(void) {
 bool verify_pre_m_version(void) {
     if(version_in_vram->very_major > 5) return false;
     if(version_in_vram->major > 3) return false;
-    if(version_in_vram->minor > 1) return false;
     return true;
 }

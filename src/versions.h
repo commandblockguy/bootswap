@@ -24,7 +24,7 @@ struct version_call {
     struct version_data *address;
 };
 
-const struct version_call *version_monstrosity = (void*)(gfx_vram + 0x80);
+#define version_monstrosity ((struct version_call*)(gfx_vram + 0x80))
 
 #define version_in_vram ((struct version_data *)&gfx_vram[(uint24_t)version_monstrosity->address])
 
@@ -38,13 +38,16 @@ struct version_number {
 struct version {
     struct version_number number;
     void *verification_location;
+    uint24_t crc_original;
+    uint24_t crc_patched;
 };
 
 #define NUM_VERSIONS 3
 
 extern const struct version versions[NUM_VERSIONS];
 
-void *get_mod_location(void);
+
+const struct version *get_version(const struct version_number *version_number);
 
 #define PATCH_SIZE 5
 extern const uint8_t   patch_data[PATCH_SIZE];
