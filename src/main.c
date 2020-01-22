@@ -4,6 +4,8 @@
 #include <debug.h>
 #include <graphx.h>
 #include "ui.h"
+#include "verification.h"
+#include "flash.h"
 
 #define debugger(ignore) (*(volatile unsigned char *) 0xFFFFFF = 2);
 
