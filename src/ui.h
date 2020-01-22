@@ -8,7 +8,7 @@ struct menu_option {
 
 /* Generic menu function */
 uint8_t menu(const char *name, const struct menu_option *options, uint8_t num_options);
-bool prompt(const char *name, const char *text);
+bool message(char *title, char *str);
 
 void main_menu(void);
 

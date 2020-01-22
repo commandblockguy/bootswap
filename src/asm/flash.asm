@@ -6,6 +6,7 @@ public _write_bytes
 public _erase_sector
 public _reset_all_ipbs
 public _set_boot_ipbs
+public _uses_new_flash
 
 
 _flash_unlock:
@@ -188,6 +189,16 @@ exit_ipb_program:
     ld  ($00),a
     xor a,a
     ld  ($00),a
+    ret
+
+_uses_new_flash:
+    ld  bc,3
+    xor a,a
+    call    read_port
+    rr  a
+    rr  a
+    rr  a
+    rr  a
     ret
 
 extern read_port

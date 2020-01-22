@@ -12,6 +12,8 @@ void write_bytes(void *dest, const void *src, size_t size);
 
 void erase_sector(void *sector);
 
+bool uses_new_flash(void);
+
 enum flash_lock_status {
     LOCKED = 0x00,
     PARTIALLY_UNLOCKED = 0x04,
