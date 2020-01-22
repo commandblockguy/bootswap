@@ -18,32 +18,6 @@
 // todo:
 /* Display warning */
 /* Check which flash chip is in use */
-/* Select options: */
-/*  Dump boot code to appvar */
-/*   Ask for appvar name */
-/*   Use the privileged ldir to copy to vRAM */
-/*  Load boot code from appvar */
-/*   Another warning */
-/*   Copy data from appvar to vRAM */
-/*   Basic sanity checks */
-/*    Is the boot code to be installed in our version list? */
-/*    Is this a boot code version that's in use on post-rev-M calcs? */
-/*    Does this have proper interrupt handlers? */
-/*    Other locational bits needed for regular calculator operation */
-/*   Unlock flash as before */
-/*   Wipe and flash one sector at a time */
-/*   Relock flash */
-/*  Check if stock bootcode */
-/*   Take some sort of checksum of the bootcode */
-/*   Display which bootcode version it matched */
-/*  Allow 3rd-party OSes */
-/*   Another warning */
-/*   Basic sanity check to ensure that the location is correct */
-/*   Copy relevant sector to vRAM */
-/*   Make changes to the vRAM */
-/*   Erase and flash sector like before */
-/*  Revert 3rd-party OS mod */
-/*   Same as allowing in the first place */
 
 #define BG_COLOR 0
 #define TEXT_COLOR 255
@@ -254,7 +228,7 @@ void print_wrapped_text(char *str, uint24_t left_margin, uint8_t top_margin, uin
 
 }
 
-void message(char *title, char *str) {
+bool message(char *title, char *str) {
     gfx_FillScreen(BG_COLOR);
     gfx_SetTextFGColor(TEXT_COLOR);
     gfx_SetTextScale(2, 2);
@@ -263,9 +237,66 @@ void message(char *title, char *str) {
     print_wrapped_text(str, BASE_X, BASE_Y, LCD_WIDTH - BASE_X);
     gfx_SwapDraw();
 
-    while(kb_IsDown(kb_KeyClear) || kb_IsDown(kb_KeyEnter)) kb_Scan();
-    while(!kb_IsDown(kb_KeyClear) && !kb_IsDown(kb_KeyEnter)) kb_Scan();
-    while(kb_IsDown(kb_KeyClear) || kb_IsDown(kb_KeyEnter)) kb_Scan();
+    while(kb_IsDown(kb_KeyClear) || kb_IsDown(kb_KeyEnter) || kb_IsDown(kb_Key2nd))
+        kb_Scan();
+
+    while(true) {
+        kb_Scan();
+        if(kb_IsDown(kb_KeyClear)) {
+            while(kb_IsDown(kb_KeyClear)) kb_Scan();
+            return false;
+        }
+        if(kb_IsDown(kb_KeyEnter)) {
+            while(kb_IsDown(kb_KeyEnter)) kb_Scan();
+            return true;
+        }
+        if(kb_IsDown(kb_Key2nd)) {
+            while(kb_IsDown(kb_Key2nd)) kb_Scan();
+            return true;
+        }
+    }
+}
+
+bool get_appvar_name(char *title, char* result) {
+    struct menu_option options[10];
+    char names[10][9];
+    void *search_pos;
+    uint8_t num_vars;
+    uint8_t selection;
+
+    for(search_pos = NULL, num_vars = 0; num_vars < 100; num_vars++) {
+        char *name;
+        options[num_vars].function = NULL;
+        options[num_vars].str = names[num_vars];
+        if(!(name = ti_Detect(&search_pos, "bootcode"))) break;
+        strcpy(names[num_vars], name);
+        // todo: maybe ignore appvars with missing data
+    }
+
+    if(!num_vars) {
+        message("Error:", "No backup appvars found.");
+        return false;
+    }
+
+    selection = menu(title, options, num_vars);
+
+    if(!selection) return false;
+
+    strcpy(result, names[selection - 1]);
+    return true;
+}
+
+bool paperweight(char *str) {
+    char buf[12];
+    gfx_FillScreen(BG_COLOR);
+    gfx_SetTextFGColor(TEXT_COLOR);
+    gfx_SetTextScale(2, 2);
+    gfx_PrintStringXY("WARNING", BASE_X, TITLE_Y);
+    gfx_SetTextScale(1, 1);
+    print_wrapped_text(str, BASE_X, BASE_Y, LCD_WIDTH - BASE_X);
+    text_entry(buf, 12, gfx_GetTextY() + 2 * TEXT_HEIGHT);
+
+    return strcmp(buf, "paperweight") == 0 || strcmp(buf, "PAPERWEIGHT") == 0;
 }
 
 void main_menu(void) {
@@ -312,43 +343,84 @@ void menu_backup(void) {
     message("Success", "Backup complete.");
 }
 
-bool get_appvar_name(char *title, char* result) {
-    struct menu_option options[10];
-    char names[10][9];
-    void *search_pos;
-    uint8_t num_vars;
-    uint8_t selection;
-
-    for(search_pos = NULL, num_vars = 0; num_vars < 100; num_vars++) {
-        char *name;
-        options[num_vars].function = NULL;
-        options[num_vars].str = names[num_vars];
-        if(!(name = ti_Detect(&search_pos, "bootcode"))) break;
-        strcpy(names[num_vars], name);
-        // todo: maybe ignore appvars with missing data
-    }
-
-    if(!num_vars) {
-        message("Error:", "No backup appvars found.");
-        return false;
-    }
-
-    selection = menu(title, options, num_vars);
-
-    if(!selection) return false;
-
-    strcpy(result, names[selection - 1]);
-    return true;
-}
-
 void menu_install(void) {
     char name[9];
+    uint24_t crc = 0;
+    struct version_number version_number;
+    const struct version *version;
+    bool has_interrupt_handlers;
+    bool has_calls;
+    bool pre_rev_m;
+    bool is_paperweight = false;
 
     if(!get_appvar_name("Load from appvar:", name)) return;
 
     if(!appvar_to_vram(name)) {
         message("Error:", "Failed to read backup appvars.");
+        return;
     }
+
+    version_number.bootMajorVersion = version_in_vram->very_major;
+    version_number.bootMinorVersion = version_in_vram->major;
+    version_number.bootRevisionVersion = version_in_vram->minor;
+    version_number.bootBuildVersion = version_in_vram->build_upper << 8 | version_in_vram->build_lower;
+
+    version = get_version(&version_number);
+
+    if(version) crc = crc24(gfx_vram, 0x020000);
+
+    has_interrupt_handlers = verify_interrupt_handlers();
+    has_calls = verify_boot_calls();
+    pre_rev_m = verify_pre_m_version();
+
+    if(!has_interrupt_handlers) {
+        if(paperweight("The bootcode you are attempting to install does not appear to have interrupt handlers. Are you sure that it is actually a valid bootcode? Continuing the installation process will almost definitely result in the calculator becoming permanently inoperable. Press clear to cancel the installation. If you are sure that you wish to proceed with the installation, enter the word \"PAPERWEIGHT\", which is what this calculator will become in thirty seconds."))
+            is_paperweight = true;
+        else {
+            message("Cancelled", "Installation cancelled.");
+            return;
+        }
+    }
+
+    if(!has_calls) {
+        if(paperweight("The bootcode you are attempting to install does not appear to have standard bootcode calls. Continuing the installation process will likely result in the calculator becoming permanently inoperable. Press clear to cancel the installation. If you are sure that you wish to proceed with the installation, enter the word \"PAPERWEIGHT\", which is what this calculator will become in thirty seconds."))
+            is_paperweight = true;
+        else {
+            message("Cancelled", "Installation cancelled.");
+            return;
+        }
+    }
+
+    if(!pre_rev_m) {
+        if(paperweight("You appear to be installing a boot code designed for a calculator with a hardware revision of M or higher. The hardware for these newer calculators is substantially different from the hardware on your calculator. Continuing the installation process will result in the calculator becoming permanently inoperable.  Press clear to cancel the installation. If you are sure that you wish to proceed with the installation, enter the word \"PAPERWEIGHT\", which is what this calculator will become in thirty seconds."))
+            is_paperweight = true;
+        else {
+            message("Cancelled", "Installation cancelled.");
+            return;
+        }
+    }
+
+    if(!version) {
+        if(!is_paperweight) {
+            if(!message("Warning:", "The boot code version you are about to install is not a known version. As a result, it is not possible to verify that the boot code has not been modified. If you are sure that this is an unmodified boot code, please send the version number and CRC checksum (both found in the Verify Appvar menu) to commandblockguy1+bootversions@gmail.com. Press Enter or 2nd to continue with the installation, or clear to cancel.")) {
+                message("Cancelled", "Installation cancelled.");
+                return;
+            }
+        }
+    } else {
+        if(!is_paperweight && crc != version->crc_original && crc != version->crc_patched) {
+            if(!message("Warning:", "The CRC checksum of the bootcode you are about to install does not match the checksum of the unmodified bootcode. This indicates that the bootcode has been modified or corrupted. Press Enter or 2nd to continue with the installation, or clear to cancel.")) {
+                message("Cancelled", "Installation cancelled.");
+                return;
+            }
+        }
+    }
+
+    if(!appvar_to_vram(name)) {
+        message("Error:", "Failed to read backup appvars.");
+        return;
+    }
+
     vram_to_boot_code();
 
     message("Success", "Bootcode installed successfully.");
