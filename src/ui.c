@@ -303,8 +303,9 @@ void menu_backup(void) {
     }
 
     boot_code_to_vram();
-    if(vram_to_appvar(str)) {
+    if(!vram_to_appvar(str)) {
         message("Error:", "Failed to create backup. Try deleting or archiving programs to make space.");
+        return;
     };
 
     message("Success", "Backup complete.");
