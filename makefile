@@ -5,10 +5,10 @@
 # Set COMPRESSED to "YES" to create a compressed program
 # ----------------------------
 
-NAME        ?= DEMO
-COMPRESSED  ?= NO
-ICONSRC     ?= iconc.png
-DESCRIPTION ?= "C SDK Demo"
+NAME        ?= BOOTSWAP
+COMPRESSED  ?= YES
+#ICONSRC     ?= iconc.png
+DESCRIPTION ?= "Boot code manager"
 
 # ----------------------------
 # Other Options (Advanced)
@@ -17,7 +17,7 @@ DESCRIPTION ?= "C SDK Demo"
 #EXTRA_CFLAGS        ?=
 #USE_FLASH_FUNCTIONS ?= YES|NO
 #OUTPUT_MAP          ?= YES|NO
-ARCHIVED             ?= NO
+ARCHIVED             ?= YES
 #SRCDIR              ?= src
 #OBJDIR              ?= obj
 #BINDIR              ?= bin
