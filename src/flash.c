@@ -6,6 +6,7 @@
 #define DEBUG
 #include <debug.h>
 #include <graphx.h>
+#include <string.h>
 
 void *sequence = NULL;
 
@@ -24,7 +25,7 @@ void *getSequence(void) {
     return ptr;
 }
 
-bool write_sector(void *sector, const void *data) {
+void write_sector(void *sector, const void *data) {
     erase_sector(sector);
     if(sector < (void*)65536) {
         write_bytes(sector, data, 8192);
@@ -63,14 +64,20 @@ void boot_code_to_vram(void) {
     priv_copy(gfx_vram, 0, 0x020000);
 }
 
-void vram_to_boot_code(void) {
+bool vram_to_boot_code(void) {
     void *sector;
+    bool success;
 
     unlock_bootcode();
 
+    /* The last sector is larger than the rest, hence the <= */
     for(sector = 0x000000; sector <= (void*)0x010000; sector += 0x2000) {
         write_sector(sector, gfx_vram + (int)sector);
     }
 
+    success = memcmp(0x000000, gfx_vram, 0x020000) == 0;
+
     lock_bootcode();
+
+    return success;
 }

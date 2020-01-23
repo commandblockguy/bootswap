@@ -421,7 +421,12 @@ void menu_install(void) {
         return;
     }
 
-    vram_to_boot_code();
+    if(!vram_to_boot_code())
+        if(!vram_to_boot_code())
+            if(!vram_to_boot_code()) {
+                message("ERROR", "Bootcode failed to install - Device may have just bricked :(");
+                return;
+            }
 
     message("Success", "Bootcode installed successfully.");
 }
@@ -532,6 +537,7 @@ void menu_enable_verification(void) {
 
     if(!patch(location, unpatch_data, patch_data, PATCH_SIZE)) {
         message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
+        return;
     }
 
     message("Success", "OS verification re-enabled.");

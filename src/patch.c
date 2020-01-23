@@ -14,7 +14,10 @@ bool patch(void *location, const void *replacement, const void *old, size_t size
         return false;
     }
     memcpy((uint24_t)location + gfx_vram, replacement, size);
-    vram_to_boot_code();
+    if(!vram_to_boot_code())
+        if(!vram_to_boot_code())
+            if(!vram_to_boot_code())
+                return false;
 
     return true;
 }

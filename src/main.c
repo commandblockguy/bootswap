@@ -1,14 +1,7 @@
 #include <fileioc.h>
-#undef NDEBUG
-#define DEBUG
-#include <debug.h>
 #include <graphx.h>
 #include "ui.h"
-#include "verification.h"
-#include "flash.h"
 #include "asm/flash.h"
-
-#define debugger(ignore) (*(volatile unsigned char *) 0xFFFFFF = 2);
 
 void main() {
 
