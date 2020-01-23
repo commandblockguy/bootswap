@@ -5,3 +5,4 @@ notes.txt
 obj/
 src/gfx/*.c
 src/gfx/*.h
+venv/

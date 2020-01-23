@@ -4,9 +4,11 @@
 #include <debug.h>
 #include "backup.h"
 
+#define CUTOFF_LENGTH 65000
+
 bool vram_to_appvar(char *name) {
     ti_var_t slot;
-    const uint24_t var_1_size = 0x020000 - 2 * TI_MAX_SIZE;
+    const uint24_t var_1_size = 0x020000 - 2 * CUTOFF_LENGTH;
     char name_buf[9];
     uint8_t name_length = strlen(name);
 
@@ -26,7 +28,7 @@ bool vram_to_appvar(char *name) {
 
     slot = ti_Open(name_buf, "w");
     if(!slot) return false;
-    ti_Write(&gfx_vram[var_1_size], 1, TI_MAX_SIZE, slot);
+    ti_Write(&gfx_vram[var_1_size], 1, CUTOFF_LENGTH, slot);
     ti_SetArchiveStatus(true, slot);
     ti_Close(slot);
 
@@ -34,7 +36,7 @@ bool vram_to_appvar(char *name) {
 
     slot = ti_Open(name_buf, "w");
     if(!slot) return false;
-    ti_Write(&gfx_vram[var_1_size + TI_MAX_SIZE], 1, TI_MAX_SIZE, slot);
+    ti_Write(&gfx_vram[var_1_size + CUTOFF_LENGTH], 1, CUTOFF_LENGTH, slot);
     ti_SetArchiveStatus(true, slot);
     ti_Close(slot);
 
@@ -43,7 +45,7 @@ bool vram_to_appvar(char *name) {
 
 bool appvar_to_vram(char* name) {
     ti_var_t slot;
-    const uint24_t var_1_size = 0x020000 - 2 * TI_MAX_SIZE;
+    const uint24_t var_1_size = 0x020000 - 2 * CUTOFF_LENGTH;
     char name_buf[9];
     char test_buf[9];
     uint8_t name_length = strlen(name);
@@ -65,14 +67,14 @@ bool appvar_to_vram(char* name) {
 
     slot = ti_Open(name_buf, "r");
     if(!slot) return false;
-    ti_Read(&gfx_vram[var_1_size], 1, TI_MAX_SIZE, slot);
+    ti_Read(&gfx_vram[var_1_size], 1, CUTOFF_LENGTH, slot);
     ti_Close(slot);
 
     name_buf[name_length] = '2';
 
     slot = ti_Open(name_buf, "r");
     if(!slot) return false;
-    ti_Read(&gfx_vram[var_1_size + TI_MAX_SIZE], 1, TI_MAX_SIZE, slot);
+    ti_Read(&gfx_vram[var_1_size + CUTOFF_LENGTH], 1, CUTOFF_LENGTH, slot);
     ti_Close(slot);
 
     return true;
