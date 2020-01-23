@@ -12,6 +12,8 @@ void main() {
     gfx_SetTextBGColor(42);
     gfx_SetDrawBuffer();
 
+    gfx_palette[1] = 0xFFFF;
+
     if(uses_new_flash()) {
         message("Incompatible", "BootSwap is not compatible with calculators with hardware revision M or higher, which includes your calculator.");
     } else {

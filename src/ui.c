@@ -14,10 +14,7 @@
 #include "patch.h"
 #include "versions.h"
 #include "verification.h"
-
-// todo:
-/* Display warning */
-/* Check which flash chip is in use */
+#include "gfx/text.h"
 
 #define BG_COLOR 0
 #define TEXT_COLOR 255
@@ -299,6 +296,33 @@ bool paperweight(char *str) {
     return strcmp(buf, "paperweight") == 0 || strcmp(buf, "PAPERWEIGHT") == 0;
 }
 
+uint32_t old_screen_base;
+
+void wait_screen(void) {
+    uint8_t * const new_screen_base = gfx_vram + LCD_WIDTH * LCD_HEIGHT * 15 / 8;
+    const uint24_t screen_size = LCD_WIDTH * LCD_HEIGHT / 8;
+    uint8_t i;
+
+    old_screen_base = lcd_UpBase;
+    lcd_UpBase = (uint24_t)new_screen_base;
+    /* Set to 1bpp mode and pixel endianness */
+    lcd_Control = (lcd_Control & ~0xE) | 0x0400;
+    memset(new_screen_base, 0, screen_size);
+
+    /* Draw our sprite */
+    for(i = 0; i < text_height; i++) {
+        const uint24_t text_x = 133;
+        const uint8_t text_y = (LCD_HEIGHT - text_height) / 2;
+        memcpy(new_screen_base + text_x / 8 + (text_y + i) * LCD_WIDTH / 8, &text_data[text_width * i], text_width);
+    }
+}
+
+void exit_wait_screen(void) {
+    lcd_UpBase = old_screen_base;
+    /* Reset to 8bpp and old endianness settings */
+    lcd_Control = (lcd_Control & ~0x040E) | 0b110;
+}
+
 void main_menu(void) {
     const struct menu_option options[] = {
         {menu_backup,               "Back up to appvar"},
@@ -334,12 +358,15 @@ void menu_backup(void) {
         return;
     }
 
+    wait_screen();
     boot_code_to_vram();
     if(!vram_to_appvar(str)) {
+        exit_wait_screen();
         message("Error:", "Failed to create backup. Try deleting or archiving programs to make space.");
         return;
     };
 
+    exit_wait_screen();
     message("Success", "Backup complete.");
 }
 
@@ -355,7 +382,9 @@ void menu_install(void) {
 
     if(!get_appvar_name("Load from appvar:", name)) return;
 
+    wait_screen();
     if(!appvar_to_vram(name)) {
+        exit_wait_screen();
         message("Error:", "Failed to read backup appvars.");
         return;
     }
@@ -372,6 +401,8 @@ void menu_install(void) {
     has_interrupt_handlers = verify_interrupt_handlers();
     has_calls = verify_boot_calls();
     pre_rev_m = verify_pre_m_version();
+
+    exit_wait_screen();
 
     if(!has_interrupt_handlers) {
         if(paperweight("The bootcode you are attempting to install does not appear to have interrupt handlers. Are you sure that it is actually a valid bootcode? Continuing the installation process will almost definitely result in the calculator becoming permanently inoperable. Press clear to cancel the installation. If you are sure that you wish to proceed with the installation, enter the word \"PAPERWEIGHT\", which is what this calculator will become in thirty seconds."))
@@ -416,7 +447,10 @@ void menu_install(void) {
         }
     }
 
+    wait_screen();
+
     if(!appvar_to_vram(name)) {
+        exit_wait_screen();
         message("Error:", "Failed to read backup appvars.");
         return;
     }
@@ -424,10 +458,12 @@ void menu_install(void) {
     if(!vram_to_boot_code())
         if(!vram_to_boot_code())
             if(!vram_to_boot_code()) {
+                exit_wait_screen();
                 message("ERROR", "Bootcode failed to install - Device may have just bricked :(");
                 return;
             }
 
+    exit_wait_screen();
     message("Success", "Bootcode installed successfully.");
 }
 
@@ -451,6 +487,8 @@ void menu_verify(void) {
     has_interrupt_handlers = verify_interrupt_handlers();
     has_calls = verify_boot_calls();
     pre_rev_m = verify_pre_m_version();
+
+    exit_wait_screen();
 
     gfx_FillScreen(BG_COLOR);
 
@@ -493,6 +531,7 @@ void menu_verify(void) {
 }
 
 void menu_verify_current(void) {
+    wait_screen();
     boot_code_to_vram();
     menu_verify();
 }
@@ -502,8 +541,11 @@ void menu_verify_appvar(void) {
 
     if(!get_appvar_name("Verify appvar:", name)) return;
 
+    wait_screen();
     if(!appvar_to_vram(name)) {
+        exit_wait_screen();
         message("Error:", "Failed to read backup appvars.");
+        return;
     }
 
     menu_verify();
@@ -518,10 +560,14 @@ void menu_disable_verification(void) {
         return;
     }
 
-    if(!patch(location, patch_data, unpatch_data, PATCH_SIZE)) {
-        message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
-    }
+    wait_screen();
 
+    if(!patch(location, patch_data, unpatch_data, PATCH_SIZE)) {
+        exit_wait_screen();
+        message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
+        return;
+    }
+    exit_wait_screen();
     message("Success", "OS verification disabled.");
 }
 
@@ -535,11 +581,14 @@ void menu_enable_verification(void) {
         return;
     }
 
+    wait_screen();
     if(!patch(location, unpatch_data, patch_data, PATCH_SIZE)) {
+        exit_wait_screen();
         message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
         return;
     }
 
+    exit_wait_screen();
     message("Success", "OS verification re-enabled.");
 }
 
