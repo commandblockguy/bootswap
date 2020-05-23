@@ -554,19 +554,21 @@ void menu_verify_appvar(void) {
 void menu_disable_verification(void) {
     const struct version_number *version_number = (struct version_number*)&os_GetSystemInfo()->bootMajorVersion;
     const struct version *version = get_version(version_number);
-    void *location = version->verification_location;
-    if(!location) {
-        message("Error:", "Unable to determine which memory location to patch for this boot code version.");
-        return;
-    }
+    uint8_t i;
 
     wait_screen();
 
-    if(!patch(location, patch_data, unpatch_data, PATCH_SIZE)) {
-        exit_wait_screen();
-        message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
-        return;
+    for(i = 0; i < NUM_PATCHES; i++) {
+        void *location = version->patch_locations[i];
+        struct patch *patch = &patches[i];
+        if(location == NULL) continue;
+        if(!apply_patch(location, patch->patched_data, patch->unpatched_data, patch->size)) {
+            exit_wait_screen();
+            message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
+            return;
+        }
     }
+
     exit_wait_screen();
     message("Success", "OS verification disabled.");
 }
@@ -574,18 +576,19 @@ void menu_disable_verification(void) {
 void menu_enable_verification(void) {
     const struct version_number *version_number = (struct version_number*)&os_GetSystemInfo()->bootMajorVersion;
     const struct version *version = get_version(version_number);
-    void *location = version->verification_location;
-    if(!location) {
-        message("Error:",
-                "Unable to find patch location for this bootcode version");
-        return;
-    }
+    uint8_t i;
 
     wait_screen();
-    if(!patch(location, unpatch_data, patch_data, PATCH_SIZE)) {
-        exit_wait_screen();
-        message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
-        return;
+
+    for(i = 0; i < NUM_PATCHES; i++) {
+        void *location = version->patch_locations[i];
+        const struct patch *patch = &patches[i];
+        if(location == NULL) continue;
+        if(!apply_patch(location, patch->unpatched_data, patch->patched_data, patch->size)) {
+            exit_wait_screen();
+            message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");
+            return;
+        }
     }
 
     exit_wait_screen();

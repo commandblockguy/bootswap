@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <graphx.h>
+#include "patch.h"
 
 struct version_data {
     uint8_t ld_1;
@@ -37,7 +38,7 @@ struct version_number {
 
 struct version {
     struct version_number number;
-    void *verification_location;
+    void *patch_locations[NUM_PATCHES];
     uint24_t crc_original;
     uint24_t crc_patched;
 };
@@ -48,9 +49,5 @@ extern const struct version versions[NUM_VERSIONS];
 
 
 const struct version *get_version(const struct version_number *version_number);
-
-#define PATCH_SIZE 5
-extern const uint8_t   patch_data[PATCH_SIZE];
-extern const uint8_t unpatch_data[PATCH_SIZE];
 
 #endif //FLASH_VERSIONS_H
