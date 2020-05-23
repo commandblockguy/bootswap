@@ -512,17 +512,23 @@ void menu_verify(void) {
     else {
         gfx_PrintString("Unknown version.");
     }
+    gfx_PrintStringXY("Known patched CRC: ", BASE_X, BASE_Y + LINE_SPACING * 3);
+    if(version)
+        gfx_PrintUInt(version->crc_patched, 8);
+    else {
+        gfx_PrintString("Unknown version.");
+    }
 
     if(!has_interrupt_handlers)
-        gfx_PrintStringXY("Interrupt handlers missing!", BASE_X, BASE_Y + LINE_SPACING * 3);
+        gfx_PrintStringXY("Interrupt handlers missing!", BASE_X, BASE_Y + LINE_SPACING * 4);
 
     if(!has_calls)
-        gfx_PrintStringXY("Bootcode calls missing!", BASE_X, BASE_Y + LINE_SPACING * 4);
+        gfx_PrintStringXY("Bootcode calls missing!", BASE_X, BASE_Y + LINE_SPACING * 5);
 
     if(!has_calls || !has_interrupt_handlers || !pre_rev_m)
-        gfx_PrintStringXY("Not suitable for installation.", BASE_X, BASE_Y + LINE_SPACING * 5);
+        gfx_PrintStringXY("Not suitable for installation.", BASE_X, BASE_Y + LINE_SPACING * 6);
     else
-        gfx_PrintStringXY("Suitable for installation.", BASE_X, BASE_Y + LINE_SPACING * 5);
+        gfx_PrintStringXY("Suitable for installation.", BASE_X, BASE_Y + LINE_SPACING * 6);
 
     gfx_SwapDraw();
 
@@ -556,6 +562,11 @@ void menu_disable_verification(void) {
     const struct version *version = get_version(version_number);
     uint8_t i;
 
+    if(!version) {
+        message("Error:", "Cannot patch an unknown bootcode version.");
+        return;
+    }
+
     wait_screen();
 
     for(i = 0; i < NUM_PATCHES; i++) {
@@ -578,12 +589,17 @@ void menu_enable_verification(void) {
     const struct version *version = get_version(version_number);
     uint8_t i;
 
+    if(!version) {
+        message("Error:", "Cannot patch an unknown bootcode version.");
+        return;
+    }
+
     wait_screen();
 
     for(i = 0; i < NUM_PATCHES; i++) {
         void *location = version->patch_locations[i];
         const struct patch *patch = &patches[i];
-        if(location == NULL) continue;
+        if(!location) continue;
         if(!apply_patch(location, patch->unpatched_data, patch->patched_data, patch->size)) {
             exit_wait_screen();
             message("Error:", "Patch not applied - the location to be overwritten contained unexpected data.");

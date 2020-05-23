@@ -43,7 +43,7 @@ struct version {
     uint24_t crc_patched;
 };
 
-#define NUM_VERSIONS 3
+#define NUM_VERSIONS 5
 
 extern const struct version versions[NUM_VERSIONS];
 
