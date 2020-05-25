@@ -6,7 +6,7 @@ palette: palette
   images: automatic
   max-entries: 2
   fixed-color: {index: 0, r:0, g:0, b:0}
-  fixed-color: {index: 1, r:255, g:255, b:255}
+#  fixed-color: {index: 1, r:255, g:255, b:255}
 
 
 convert: images
