@@ -22,8 +22,6 @@ bool apply_patch(void *location, const void *replacement, const void *old, size_
     return true;
 }
 
-// 0x647B 38 06
-
 /* ld hl,1 \ ret */
 const uint8_t   signature_patch_data[] = {0x21, 0x01, 0x00, 0x00, 0xC9};
 const uint8_t signature_unpatch_data[] = {0xDD, 0xE5, 0xDD, 0x21, 0x00};
