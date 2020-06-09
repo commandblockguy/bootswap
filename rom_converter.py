@@ -10,7 +10,7 @@ with open(filename_in, "rb") as infile:
 
     with open(no_extension + ".bin", "wb") as outfile:
         first_var_data_length = 0x020000 - 2 * max_data_length
-        outfile.write(bytes("bootcode"))
+        outfile.write(bytes("bootcode", "utf-8"))
         outfile.write(bytearray({0}))
         outfile.write(infile.read(first_var_data_length))
     with open(no_extension + "1.bin", "wb") as outfile:
