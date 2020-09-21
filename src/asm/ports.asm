@@ -1,70 +1,76 @@
 public read_port
 public write_port
-public _priv_copy
 public _set_priv
 public _reset_priv
 public _priv_upper
 
-heapBot			:= 0D1887Ch
-
+; this is hella inefficient, but who actually cares?
 read_port:
-	ld	de,$C978ED
-	ld	hl,heapBot - 3
-	ld	(hl),de
-	jp	(hl)
+	ld	a,mb
+	push	af
+	ld	a,.z80 shr 16
+	ld	mb,a
+	jp.sis	.z80 and $FFFF
+assume adl = 0
+.z80:
+	in	e,(bc)
+	jp.lil	.continue
+assume adl = 1
+.continue:
+	pop	af
+	ld	mb,a
+	ld	a,e
+	ret
 
 write_port:
-	ld	de,$C979ED
-	ld	hl,heapBot - 3
-	ld	(hl),de
-	jp	(hl)
-
-_priv_copy:
-    ld	de,$C9B0ED
-    ld	hl,heapBot - 3
-    ld	(hl),de
-    pop iy
-    pop de
-    pop hl
-    pop bc
-    push    bc
-    push    hl
-    push    de
-    push    iy
-    jp  heapBot - 3
+	ld	e,a
+	ld	a,mb
+	push	af
+	ld	a,.z80 shr 16
+	ld	mb,a
+	jp.sis	.z80 and $FFFF
+assume adl = 0
+.z80:
+	out	(bc),e
+	jp.lil	.continue
+assume adl = 1
+.continue:
+	pop	af
+	ld	mb,a
+	ret
 
 _set_priv:
-    ld  bc,$1d
-    call    read_port
-    ld  (priv_bkp),a
-    ld  a,$FF
-    call    write_port
-    ld  bc,$1e
-    call    read_port
-    ld  (priv_bkp+1),a
-    ld  a,$FF
-    call    write_port
-    ld  bc,$1f
-    call    read_port
-    ld  (priv_bkp+2),a
-    ld  a,$FF
-    jp  write_port
+	ld	bc,$1d
+	call	read_port
+	ld	(priv_bkp),a
+	ld	a,$FF
+	call	write_port
+	ld	bc,$1e
+	call	read_port
+	ld	(priv_bkp+1),a
+	ld	a,$FF
+	call	write_port
+	ld	bc,$1f
+	call	read_port
+	ld	(priv_bkp+2),a
+	ld	a,$FF
+	jp	write_port
 
 _reset_priv:
-    ld  bc,$1d
-    ld  a,(priv_bkp)
-    call    write_port
-    ld  bc,$1e
-    ld  a,(priv_bkp+1)
-    call    write_port
-    ld  bc,$1f
-    ld  a,(priv_bkp+2)
-    jp  write_port
+	ld	bc,$1d
+	ld	a,(priv_bkp)
+	call	write_port
+	ld	bc,$1e
+	ld	a,(priv_bkp+1)
+	call	write_port
+	ld	bc,$1f
+	ld	a,(priv_bkp+2)
+	jp	write_port
 
 _priv_upper:
-    ld  bc,$1d
-    call    read_port
-    ret
+	ld	bc,$1d
+	call	read_port
+	ret
 
 priv_bkp:
-rl  1
+rl	1

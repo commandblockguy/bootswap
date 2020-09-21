@@ -61,7 +61,7 @@ void lock_bootcode(void) {
 }
 
 void boot_code_to_vram(void) {
-    priv_copy(gfx_vram, 0, 0x020000);
+    memcpy(gfx_vram, 0, 0x020000);
 }
 
 bool vram_to_boot_code(void) {

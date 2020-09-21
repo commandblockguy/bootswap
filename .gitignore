@@ -1,6 +1,6 @@
 .idea/
 bin/
-cmake-build-debug/
+cmake-build-*/
 notes.txt
 obj/
 src/gfx/*.c
