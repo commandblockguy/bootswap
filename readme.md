@@ -19,6 +19,8 @@ However, due to what I assume is an oversight in the bootcode, these sectors can
 This program does not work on calculators with a hardware revision of M or higher (this can be seen on the back of the calculator), as they use an entirely different flash chip that does not accept the same commands.
 As the revision M's bootcode expects the other flash chip, bootcodes taken from revision M calculators will also not work on pre-revision-M calculators.
 
+It also does not run on OS 5.6.1, as TI now properly uses sector protection.
+
 BootSwap includes an option to disable OS verification.
 This allows you to install operating systems that have not been signed by TI.
 It also significantly shortens the amount of time spent on the "Verifying OS" screen after each reset on calculators with boot code 5.3.
